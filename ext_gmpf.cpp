@@ -51,6 +51,16 @@ static String HHVM_METHOD(GMPf, get) {
   }
 }
 
+static Object HHVM_METHOD(GMPf, add, int64_t delta) {
+  auto N = Native::data<GMPf>(this_);
+  mpf_t result;
+  mpf_init(result);
+  mpf_add_ui(result, N->val, delta);
+  mpf_swap(N->val, result);
+  mpf_clear(result);
+  return Object{this_};
+}
+
 static struct GMPfExtension : Extension {
   GMPfExtension(): Extension("gmpf", "1.0.0") {}
 
@@ -58,6 +68,7 @@ static struct GMPfExtension : Extension {
     HHVM_ME(GMPf, __construct);
     HHVM_ME(GMPf, set);
     HHVM_ME(GMPf, get);
+    HHVM_ME(GMPf, add);
 
     Native::registerNativeDataInfo<GMPf>(s_GMPf.get());
     loadSystemlib();

@@ -11,6 +11,9 @@ class GMPf {
   <<__Native>>
   public function set(string $val): GMPf;
 
+  <<__Native>>
+  public function add(int $delta): GMPf;
+
   public function __toString(): string {
     return $this->get();
   }
