@@ -3,14 +3,21 @@
 <<__NativeData("GMPf")>>
 class GMPf {
   <<__Native>>
-  public function __construct(mixed $val = null): void;
+  public function __construct(string $val): void;
 
   <<__Native>>
-  public function __toString(): string;
+  public function get(): string;
+
+  <<__Native>>
+  public function set(string $val): GMPf;
+
+  public function __toString(): string {
+    return $this->get();
+  }
 
   public function __debugInfo() {
     return array(
-      'val' => $this->__toString(),
+      'val' => $this->get(),
     );
   }
 }

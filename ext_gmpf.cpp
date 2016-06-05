@@ -22,20 +22,17 @@ struct GMPf {
   mpf_t val;
 };
 
-static void HHVM_METHOD(GMPf, __construct, const Variant &num) {
+static Object HHVM_METHOD(GMPf, set, const String &num) {
   auto N = Native::data<GMPf>(this_);
-  if (num.isInteger()) {
-    mpf_set_si(N->val, num.toInt64());
-  } else if (num.isDouble()) {
-    mpf_set_d(N->val, num.toDouble());
-  } else if (num.isString()) {
-    mpf_set_str(N->val, num.toString().c_str(), 10);
-  } else if (!num.isNull()) {
-    SystemLib::throwErrorObject(String("Invalid arg to GMPf constructor"));
-  }
+  mpf_set_str(N->val, num.c_str(), 10);
+  return Object{this_};
 }
 
-static String HHVM_METHOD(GMPf, __toString) {
+static void HHVM_METHOD(GMPf, __construct, const String &num) {
+  HHVM_MN(GMPf, set)(this_, num);
+}
+
+static String HHVM_METHOD(GMPf, get) {
   auto N = Native::data<GMPf>(this_);
   mp_exp_t exp;
   auto val = mpf_get_str(nullptr, &exp, 10, 0, N->val);
@@ -59,7 +56,8 @@ static struct GMPfExtension : Extension {
 
   void moduleInit() override {
     HHVM_ME(GMPf, __construct);
-    HHVM_ME(GMPf, __toString);
+    HHVM_ME(GMPf, set);
+    HHVM_ME(GMPf, get);
 
     Native::registerNativeDataInfo<GMPf>(s_GMPf.get());
     loadSystemlib();
