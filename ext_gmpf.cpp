@@ -51,11 +51,20 @@ static String HHVM_METHOD(GMPf, get) {
   }
 }
 
-static Object HHVM_METHOD(GMPf, add, int64_t delta) {
+static Object HHVM_METHOD(GMPf, add, const Variant& delta) {
   auto N = Native::data<GMPf>(this_);
   mpf_t result;
   mpf_init(result);
-  mpf_add_ui(result, N->val, delta);
+
+  if (delta.isInteger()) {
+    mpf_add_ui(result, N->val, delta.toInt64());
+  } else if (delta.isObject() && delta.toObject().instanceof(s_GMPf)) {
+    auto other = Native::data<GMPf>(delta.toObject().get());
+    mpf_add(result, N->val, other->val);
+  } else {
+    SystemLib::throwErrorObject("Invalid argument");
+  }
+
   mpf_swap(N->val, result);
   mpf_clear(result);
   return Object{this_};
