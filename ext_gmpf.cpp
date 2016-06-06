@@ -32,37 +32,40 @@ static void HHVM_METHOD(GMPf, __construct, const String &num) {
   HHVM_MN(GMPf, set)(this_, num);
 }
 
-static String HHVM_METHOD(GMPf, get) {
+static String HHVM_METHOD(GMPf, getRaw, VRefParam exponent) {
   auto N = Native::data<GMPf>(this_);
   mp_exp_t exp;
   auto val = mpf_get_str(nullptr, &exp, 10, 0, N->val);
-  if (val) {
-    SCOPE_EXIT { free(val); };
-    if (!(*val)) return "0";
-    // Ugly reformat to 0.1234E2
-    String ret("0.");
-    ret += val;
-    if (!exp) return ret;
-    ret += "E";
-    if (exp > 0) ret += "+";
-    return ret + exp;
-  } else {
-    return empty_string();
+  exponent.assignIfRef((int64_t)exp);
+  if (!val) {
+    return "0";
   }
+  SCOPE_EXIT { free(val); };
+  if (!(*val)) return "0";
+  return val;
 }
 
-static Object HHVM_METHOD(GMPf, add, const Variant& delta) {
+using gmpf_binary_op = void (*)(mpf_t, const mpf_t, const mpf_t);
+
+template <gmpf_binary_op OP>
+static Object gmpf_method(ObjectData *this_, const Variant& delta) {
   auto N = Native::data<GMPf>(this_);
   mpf_t result;
   mpf_init(result);
 
-  if (delta.isInteger()) {
-    mpf_add_ui(result, N->val, delta.toInt64());
-  } else if (delta.isObject() && delta.toObject().instanceof(s_GMPf)) {
+  if (delta.isObject() && delta.toObject().instanceof(s_GMPf)) {
     auto other = Native::data<GMPf>(delta.toObject().get());
-    mpf_add(result, N->val, other->val);
+    OP(result, N->val, other->val);
+  } else if (delta.isNumeric()) {
+    mpf_t op2;
+    mpf_init(op2);
+    mpf_set_str(op2, delta.toString().c_str(), 10);
+    OP(result, N->val, op2);
+    mpf_clear(op2);
   } else {
-    SystemLib::throwErrorObject("Invalid argument");
+    SystemLib::throwErrorObject(
+      "Invalid argument, expected integer, float, string, or GMPf"
+    );
   }
 
   mpf_swap(N->val, result);
@@ -76,8 +79,12 @@ static struct GMPfExtension : Extension {
   void moduleInit() override {
     HHVM_ME(GMPf, __construct);
     HHVM_ME(GMPf, set);
-    HHVM_ME(GMPf, get);
-    HHVM_ME(GMPf, add);
+    HHVM_ME(GMPf, getRaw);
+
+    HHVM_NAMED_ME(GMPf, add, gmpf_method<mpf_add>);
+    HHVM_NAMED_ME(GMPf, sub, gmpf_method<mpf_sub>);
+    HHVM_NAMED_ME(GMPf, mul, gmpf_method<mpf_mul>);
+    HHVM_NAMED_ME(GMPf, div, gmpf_method<mpf_div>);
 
     Native::registerNativeDataInfo<GMPf>(s_GMPf.get());
     loadSystemlib();
